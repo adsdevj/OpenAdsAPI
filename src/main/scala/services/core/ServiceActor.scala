@@ -1,8 +1,7 @@
-package services
+package services.core
 
-import akka.actor.{Props, Actor}
-
-import UtilityConversion._
+import akka.actor.{Actor, Props}
+import services.core.UtilityConversion._
 
 /**
  * Created by yabumoto on 2014/09/21.

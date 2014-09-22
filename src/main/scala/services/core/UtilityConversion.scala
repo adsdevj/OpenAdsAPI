@@ -1,7 +1,7 @@
-package services
+package services.core
 
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, Future}
 
 /**
  * Created by yabumoto on 2014/09/21.

@@ -1,8 +1,8 @@
-package services
+package services.core
 
-import akka.actor.{Props, Actor}
+import akka.actor.{Actor, Props}
 import akka.pattern.ask
-import ActorSetting._
+import services.core.ActorSetting._
 
 import scala.concurrent.Future
 
@@ -15,7 +15,7 @@ class ServiceRouter(implicit setting: ServiceSetting) extends Actor {
   def receive = {
     case action: ServiceAction => {
       // return Future[ServiceResult]
-      val result = (actor ? action).asInstanceOf[Future[ServiceResult]]
+      val result = (actor ? action).mapTo[ServiceResult]
       sender() ! result
     }
   }

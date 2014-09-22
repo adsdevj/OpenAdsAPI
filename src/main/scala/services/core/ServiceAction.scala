@@ -1,8 +1,8 @@
-package services
+package services.core
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
 import scala.util.control.NonFatal
-import ExecutionContext.Implicits.global
 
 /**
  * Created by yabumoto on 2014/09/21.
@@ -11,7 +11,7 @@ import ExecutionContext.Implicits.global
 
 class ServiceAction(action: () => Future[ServiceResult]) {
   def execute: Future[ServiceResult] = action() recover {
-    case NonFatal(ex) => new ServiceExceptionResult(Result.ERROR, ex)
+    case NonFatal(ex) => new ServiceExceptionResult(false, ex)
   }
 }
 
