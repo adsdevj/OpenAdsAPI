@@ -1,55 +1,106 @@
 package services.core
 
-import scala.collection.mutable.Buffer
-
 /**
  * Created by yabumoto on 2014/09/21.
  */
 
-class ServiceResult(val code: Result.Code) {
-
-  //TODO: maybe better method that class composition.
-  private val errorBuffer: Buffer[ServiceResult] = Buffer()
-  private val subResultBuffer: Buffer[ServiceResult] = Buffer()
-  def errors = {
-    val result = errorBuffer toSeq;
-    if ((code & Result.ERROR) == Result.ERROR) { result :+ this }
-    else result
-  }
-  def subResults = subResultBuffer toSeq
-
-  def & (result: ServiceResult) = andThen(result)
+/**
+ * Base class of result.
+ * @param success
+ */
+class ServiceResult (val success: Boolean) {
+  /**
+   * This sync can retry.
+   */
+  val canRetry: Boolean = false
 
   /**
-   * Add error to ServiceResult.
-   * @param errorResult
+   * AND synthesis results
+   * @param other
    * @return
    */
-  def wrapError(errorResult: ServiceResult) = {
-    this.errorBuffer += errorResult
-    this
-  }
+  def andThen(other: ServiceResult): ServiceResult = ServiceResult(success & other.success)
 
   /**
-   * Add sub result to ServiceResult
-   * @param result
+   * OR synthesis results
+   * @param other
    * @return
    */
-  def andThen(result: ServiceResult) = {
-    this.subResultBuffer += result
-    this
-  }
+  def orElse(other: ServiceResult): ServiceResult = ServiceResult(success | other.success)
+
+  /**
+   * AND synthesis results. alias of andThen.
+   * @param other
+   * @return
+   */
+  def &(other: ServiceResult): ServiceResult = andThen(other)
+
+  /**
+   * OR synthesis results. alias of orElse.
+   * @param other
+   * @return
+   */
+  def |(other: ServiceResult): ServiceResult = orElse(other)
 }
 
-case class ServiceExceptionResult(val canRetry: Boolean, val exception: Throwable) extends ServiceResult(
-    if (canRetry) Result.ERROR | Result.RETRY else Result.ERROR
-)
+/**
+ * Simple companion object.
+ */
+object ServiceResult {
+  def apply(success: Boolean) = new ServiceResult(success)
 
-//TODO: change to TaggedType(scalaz)
-object Result{
-  type Code = Int
-  val PROCESSING: Code = 1
-  val SUCCESS: Code = 2
-  val ERROR: Code = 4
-  val RETRY: Code = 1024
+  /**
+   * Result of class when it fails.
+   * @param code
+   * @param canRetry
+   * @param exception
+   */
+  class Failed(val code: Option[StatusCode], override val canRetry: Boolean, val exception: Option[Throwable] = None) extends ServiceResult(false) {
+    override def andThen(other: ServiceResult) = this
+
+    override def orElse(other: ServiceResult) = other
+  }
+
+  /**
+   * StatusCode of class when it fails
+   * @param code
+   * @param message
+   */
+  case class StatusCode(code: Int, message: String)
+
+  /**
+   * Result class with the response content
+   * @param contents
+   * @tparam A
+   */
+  class ContentsResult[A](success: Boolean, val contents: Seq[A]) extends ServiceResult(success) {
+    override def andThen(other: ServiceResult) = other match {
+      case o: ContentsResult[A] => new ContentsResult[A](success & o.success, contents ++ o.contents)
+      case _ => throw new IllegalArgumentException("can not configure due to differing types ServiceResult[A]")
+    }
+
+    override def orElse(other: ServiceResult) = other match {
+      case o: ContentsResult[A] => new ContentsResult[A](success | o.success, contents ++ o.contents)
+      case _ => throw new IllegalArgumentException("can not configure due to differing types ServiceResult[A]")
+    }
+  }
+
+  /**
+   * Result of class when it fails.
+   * @param code
+   * @param canRetry
+   * @param exception
+   * @param anyContents
+   * @tparam A
+   */
+  class ContentFailed[A](val code: Option[StatusCode], override val canRetry: Boolean, val exception: Option[Throwable] = None, anyContents: Seq[A] = Nil) extends ContentsResult[A](false, anyContents)
+
+  /**
+   * Service Exception. This exception is fatal error.
+   * You can't know what campaign is failed.
+   * @param service
+   * @param ex
+   */
+  class ExceptionResult(service: Service, ex: Throwable) extends ServiceResult(false)
+
 }
